@@ -1,36 +1,47 @@
-const express = require('express');
+const express  = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
-const multer = require('multer');
-const path = require('path');
+const cors     = require('cors');
+const multer   = require('multer');
+const fs       = require('fs');
+const path     = require('path');
 require('dotenv').config();
 
-// Initialize Express app
-const app = express();
+// 1️⃣ Ensure the uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
-// Middleware
+// 2️⃣ Multer setup (writes into our absolute uploadDir)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename:    (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext    = file.originalname.split('.').pop();
+    cb(null, `${unique}.${ext}`);
+  }
+});
+const upload = multer({ storage });
+
+const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// 3️⃣ Serve images from the absolute path
+app.use('/uploads', express.static(uploadDir));
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/posts', require('./routes/posts'));
+// 4️⃣ Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser:    true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB error:', err.message));
 
-// Static Files (if needed)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// 5️⃣ Route mounting
+app.use('/api/auth',  require('./routes/auth'));
+app.use('/api/posts', upload.single('image'), require('./routes/posts'));
 
-// Vercel-specific export
-module.exports = app;
-
-// Local server (only runs when not in Vercel environment)
-if (process.env.NODE_ENV !== 'production') {
-  const port = process.env.PORT || 5001;
-  app.listen(port, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${port}`);
-  });
-}
+// 6️⃣ Start server
+const port = process.env.PORT || 5001;
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
