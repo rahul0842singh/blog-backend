@@ -6,11 +6,19 @@ const fs       = require('fs');
 const path     = require('path');
 require('dotenv').config();
 
+const app = express();
+app.use(cors());
+app.use(express.json());
 // 1️⃣ Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// const uploadDir = path.join(__dirname, 'uploads');
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir, { recursive: true });
+// }
+
+
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+// Serve all static files in public (including uploads)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 2️⃣ Multer setup (writes into our absolute uploadDir)
 const storage = multer.diskStorage({
@@ -23,9 +31,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+
+
 
 // 3️⃣ Serve images from the absolute path
 app.use('/uploads', express.static(uploadDir));
