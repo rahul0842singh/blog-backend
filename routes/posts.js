@@ -2,7 +2,7 @@ const router = require('express').Router();
 const Post   = require('../models/Post');
 const jwt    = require('jsonwebtoken');
 
-// Helper: extract user ID from header
+// ✅ Helper to extract user ID
 const getUserId = header => {
   if (!header) return null;
   try {
@@ -13,20 +13,22 @@ const getUserId = header => {
   }
 };
 
-// GET /api/posts
-// • if logged in → only that user’s posts (drafts + published)
-// • if not → only published posts
+// ✅ GET all posts (filter based on login)
 router.get('/', async (req, res) => {
   const userId = getUserId(req.headers.authorization);
   const filter = userId
     ? { author: userId }
-    : { status: 'published' };      // only published for public
-  const posts = await Post.find(filter)
-    .populate('author', 'name email');
-  res.json(posts);
+    : { status: 'published' };
+
+  try {
+    const posts = await Post.find(filter).populate('author', 'name email');
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Auth middleware
+// ✅ Auth middleware
 const requireAuth = (req, res, next) => {
   const userId = getUserId(req.headers.authorization);
   if (!userId) return res.status(401).json({ error: 'Authentication required' });
@@ -34,46 +36,66 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
-// CREATE
+// ✅ CREATE new post
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { title, content, category, status } = req.body;
-    const imagePath = req.file ? req.file.filename : null;
+    const imagePath = req.file ? req.file.path : null; // Cloudinary URL
+
     const post = await Post.create({
-      title, content, category, status, imagePath, author: req.userId
+      title,
+      content,
+      category,
+      status,
+      imagePath,
+      author: req.userId,
     });
+
     res.status(201).json(post);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// UPDATE
+// ✅ UPDATE post
 router.put('/:id', requireAuth, async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: 'Not found' });
-  if (post.author.toString() !== req.userId)
-    return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Not found' });
+    if (post.author.toString() !== req.userId)
+      return res.status(403).json({ error: 'Forbidden' });
 
-  const { title, content, category, status } = req.body;
-  post.title    = title;
-  post.content  = content;
-  post.category = category;
-  post.status   = status;
-  if (req.file) post.imagePath = req.file.filename;
-  await post.save();
-  res.json(post);
+    const { title, content, category, status } = req.body;
+
+    post.title    = title;
+    post.content  = content;
+    post.category = category;
+    post.status   = status;
+
+    if (req.file) {
+      post.imagePath = req.file.path; // Updated Cloudinary URL
+    }
+
+    await post.save();
+    res.json(post);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// DELETE
+// ✅ DELETE post
 router.delete('/:id', requireAuth, async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: 'Not found' });
-  if (post.author.toString() !== req.userId)
-    return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: 'Not found' });
+    if (post.author.toString() !== req.userId)
+      return res.status(403).json({ error: 'Forbidden' });
 
-  await post.deleteOne();
-  res.json({ message: 'Deleted' });
+    await post.deleteOne();
+    res.json({ message: 'Deleted' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 module.exports = router;
