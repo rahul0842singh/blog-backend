@@ -1,5 +1,4 @@
 const express    = require('express');
-const Post   = require('../server/models/Post');
 const mongoose   = require('mongoose');
 const cors       = require('cors');
 const multer     = require('multer');
@@ -18,7 +17,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'uploads', // Folder in Cloudinary
+    folder: 'uploads', // folder in your Cloudinary dashboard
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
     public_id: (req, file) =>
       Date.now() + '-' + Math.round(Math.random() * 1e9),
@@ -26,17 +25,8 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 
-// ✅ Express app
 const app = express();
-
-// ✅ CORS setup
-const corsOptions = {
-  origin: 'https://frontend-tawny-nine-95.vercel.app', // ✅ Your frontend domain
-  credentials: true, // ✅ Allow sending cookies/auth headers if needed
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // ✅ Handle preflight requests
-
+app.use(cors());
 app.use(express.json());
 
 // ✅ MongoDB connection
@@ -49,8 +39,8 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // ✅ Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/posts', upload.single('image'), require('./routes/posts'));
+app.use('/api/posts', upload.single('image'), require('./routes/posts')); // Single image per post
 
-// ✅ Start server
+// ✅ Server start
 const port = process.env.PORT || 5001;
 app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
