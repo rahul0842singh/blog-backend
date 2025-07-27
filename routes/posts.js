@@ -1,8 +1,30 @@
 const router = require('express').Router();
 const Post   = require('../models/Post');
 const jwt    = require('jsonwebtoken');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const { v2: cloudinary } = require('cloudinary');
+require('dotenv').config();
 
-// ✅ Helper to extract user ID
+// ✅ Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// ✅ Cloudinary storage for multer
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'uploads',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1e9),
+  },
+});
+const upload = multer({ storage });
+
+// ✅ Helper: extract user ID
 const getUserId = header => {
   if (!header) return null;
   try {
@@ -13,7 +35,15 @@ const getUserId = header => {
   }
 };
 
-// ✅ GET all posts (filter based on login)
+// ✅ Auth middleware
+const requireAuth = (req, res, next) => {
+  const userId = getUserId(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Authentication required' });
+  req.userId = userId;
+  next();
+};
+
+// ✅ GET posts
 router.get('/', async (req, res) => {
   const userId = getUserId(req.headers.authorization);
   const filter = userId
@@ -28,19 +58,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ Auth middleware
-const requireAuth = (req, res, next) => {
-  const userId = getUserId(req.headers.authorization);
-  if (!userId) return res.status(401).json({ error: 'Authentication required' });
-  req.userId = userId;
-  next();
-};
-
-// ✅ CREATE new post
-router.post('/', requireAuth, async (req, res) => {
+// ✅ CREATE post
+router.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { title, content, category, status } = req.body;
-    const imagePath = req.file ? req.file.path : null; // Cloudinary URL
+    const imagePath = req.file ? req.file.path : null;
 
     const post = await Post.create({
       title,
@@ -58,7 +80,7 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // ✅ UPDATE post
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: 'Not found' });
@@ -66,14 +88,13 @@ router.put('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
 
     const { title, content, category, status } = req.body;
-
-    post.title    = title;
-    post.content  = content;
+    post.title = title;
+    post.content = content;
     post.category = category;
-    post.status   = status;
+    post.status = status;
 
     if (req.file) {
-      post.imagePath = req.file.path; // Updated Cloudinary URL
+      post.imagePath = req.file.path;
     }
 
     await post.save();
