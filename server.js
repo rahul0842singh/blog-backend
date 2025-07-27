@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const Post   = require('../models/Post');
+const Post   = require('../server/models/Post');
 const jwt    = require('jsonwebtoken');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
