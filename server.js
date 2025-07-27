@@ -1,20 +1,24 @@
-const express    = require('express');
-const mongoose   = require('mongoose');
-const cors       = require('cors');
+const express = require('express');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
-// ✅ Express app
 const app = express();
 
-// ✅ CORS setup for frontend
-const corsOptions = {
-  origin: 'https://frontend-tawny-nine-95.vercel.app',
-  credentials: true,
-};
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+// ✅ Manual CORS headers (for Render + Vercel compatibility)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://frontend-tawny-nine-95.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // Preflight OK
+  }
 
-// ✅ Middleware
+  next();
+});
+
+// ✅ JSON middleware
 app.use(express.json());
 
 // ✅ MongoDB connection
