@@ -4,6 +4,24 @@ require('dotenv').config();
 
 const app = express();
 
+if (require.main === module) {
+  const server = http.createServer(app);
+  io = new Server(server, {
+    cors: {
+      origin: 'https://frontend-tawny-nine-95.vercel.app',
+      credentials: true,
+    }
+  });
+
+  // Initialize socket logic
+  chatSocketHandler(io, connectedUsers);
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
+
 // ✅ Manual CORS headers (for Render + Vercel compatibility)
 app.use(cors({
   origin: 'https://frontend-tawny-nine-95.vercel.app',
