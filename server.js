@@ -10,7 +10,7 @@ const cors = require('cors');
 
 // ✅ Manual CORS headers (for Render + Vercel compatibility)
 app.use(cors({
-  origin: 'https://frontend-tawny-nine-95.vercel.app',
+  origin: 'https://frontend-tawny-nine-95.vercel.app/',
   credentials: true,
 }));
 
