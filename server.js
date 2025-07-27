@@ -8,7 +8,7 @@ const app = express();
 
 // ✅ CORS setup for frontend
 const corsOptions = {
-  origin: 'https://frontend-tawny-nine-95.vercel.app',
+  origin: 'https://frontend-tawny-nine-95.vercel.app/',
   credentials: true,
 };
 app.use(cors(corsOptions));
