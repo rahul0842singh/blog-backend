@@ -1,121 +1,56 @@
-const router = require('express').Router();
+const express    = require('express');
 const Post   = require('../server/models/Post');
-const jwt    = require('jsonwebtoken');
-const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const mongoose   = require('mongoose');
+const cors       = require('cors');
+const multer     = require('multer');
 const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+require('dotenv').config();
 
-// ✅ Configure Cloudinary
+// ✅ Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Cloudinary storage for multer
+// ✅ Multer + Cloudinary storage
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: 'uploads',
+    folder: 'uploads', // Folder in Cloudinary
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
-    public_id: (req, file) => Date.now() + '-' + Math.round(Math.random() * 1e9),
+    public_id: (req, file) =>
+      Date.now() + '-' + Math.round(Math.random() * 1e9),
   },
 });
 const upload = multer({ storage });
 
-// ✅ Helper: extract user ID
-const getUserId = header => {
-  if (!header) return null;
-  try {
-    const token = header.split(' ')[1];
-    return jwt.verify(token, process.env.JWT_SECRET).id;
-  } catch {
-    return null;
-  }
+// ✅ Express app
+const app = express();
+
+// ✅ CORS setup
+const corsOptions = {
+  origin: 'https://frontend-tawny-nine-95.vercel.app', // ✅ Your frontend domain
+  credentials: true, // ✅ Allow sending cookies/auth headers if needed
 };
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // ✅ Handle preflight requests
 
-// ✅ Auth middleware
-const requireAuth = (req, res, next) => {
-  const userId = getUserId(req.headers.authorization);
-  if (!userId) return res.status(401).json({ error: 'Authentication required' });
-  req.userId = userId;
-  next();
-};
+app.use(express.json());
 
-// ✅ GET posts
-router.get('/', async (req, res) => {
-  const userId = getUserId(req.headers.authorization);
-  const filter = userId
-    ? { author: userId }
-    : { status: 'published' };
+// ✅ MongoDB connection
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser:    true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB error:', err.message));
 
-  try {
-    const posts = await Post.find(filter).populate('author', 'name email');
-    res.json(posts);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ✅ Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/posts', upload.single('image'), require('./routes/posts'));
 
-// ✅ CREATE post (apply multer here)
-router.post('/', requireAuth, upload.single('image'), async (req, res) => {
-  try {
-    const { title, content, category, status } = req.body;
-    const imagePath = req.file ? req.file.path : null;
-
-    const post = await Post.create({
-      title,
-      content,
-      category,
-      status,
-      imagePath,
-      author: req.userId,
-    });
-
-    res.status(201).json(post);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// ✅ UPDATE post
-router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: 'Not found' });
-    if (post.author.toString() !== req.userId)
-      return res.status(403).json({ error: 'Forbidden' });
-
-    const { title, content, category, status } = req.body;
-    post.title = title;
-    post.content = content;
-    post.category = category;
-    post.status = status;
-
-    if (req.file) {
-      post.imagePath = req.file.path;
-    }
-
-    await post.save();
-    res.json(post);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// ✅ DELETE post
-router.delete('/:id', requireAuth, async (req, res) => {
-  try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ error: 'Not found' });
-    if (post.author.toString() !== req.userId)
-      return res.status(403).json({ error: 'Forbidden' });
-
-    await post.deleteOne();
-    res.json({ message: 'Deleted' });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-module.exports = router;
+// ✅ Start server
+const port = process.env.PORT || 5001;
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
