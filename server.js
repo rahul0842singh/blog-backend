@@ -11,7 +11,7 @@ const cors = require('cors');
   server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });
-}
+
 
 // ✅ Manual CORS headers (for Render + Vercel compatibility)
 app.use(cors({
