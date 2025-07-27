@@ -1,25 +1,27 @@
-const express  = require('express');
-const mongoose = require('mongoose');
-const cors     = require('cors');
-const multer   = require('multer');
-const fs       = require('fs');
-const path     = require('path');
+const express    = require('express');
+const mongoose   = require('mongoose');
+const cors       = require('cors');
+const multer     = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 require('dotenv').config();
 
-// 1️⃣ Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// ✅ Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// 2️⃣ Multer setup (writes into our absolute uploadDir)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename:    (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext    = file.originalname.split('.').pop();
-    cb(null, `${unique}.${ext}`);
-  }
+// ✅ Multer + Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'uploads', // folder in your Cloudinary dashboard
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif'],
+    public_id: (req, file) =>
+      Date.now() + '-' + Math.round(Math.random() * 1e9),
+  },
 });
 const upload = multer({ storage });
 
@@ -27,21 +29,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 3️⃣ Serve images from the absolute path
-app.use('/uploads', express.static(uploadDir));
-
-// 4️⃣ Connect to MongoDB
+// ✅ MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser:    true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error('MongoDB error:', err.message));
 
-// 5️⃣ Route mounting
-app.use('/api/auth',  require('./routes/auth'));
-app.use('/api/posts', upload.single('image'), require('./routes/posts'));
+// ✅ Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/posts', upload.single('image'), require('./routes/posts')); // Single image per post
 
-// 6️⃣ Start server
+// ✅ Server start
 const port = process.env.PORT || 5001;
 app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
