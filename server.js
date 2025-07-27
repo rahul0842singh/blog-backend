@@ -5,17 +5,7 @@ require('dotenv').config();
 
 const app = express();
 
-if (require.main === module) {
-  const server = http.createServer(app);
-  io = new Server(server, {
-    cors: {
-      origin: 'https://frontend-tawny-nine-95.vercel.app',
-      credentials: true,
-    }
-  });
-
-  // Initialize socket logic
-  chatSocketHandler(io, connectedUsers);
+const cors = require('cors');
 
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
